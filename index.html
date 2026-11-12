@@ -1,0 +1,280 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AzDar Ads Watching</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#07111f;color:#fff;
+ font-family:Arial,sans-serif;
+}
+header{
+ background:linear-gradient(120deg,#101d35,#251044);
+ padding:24px 15px;text-align:center;
+ border-bottom:1px solid #00e5ff;
+}
+header h1{color:#00e5ff;margin:0;font-size:25px}
+header p{color:#aaa;font-size:12px;margin:8px 0 0}
+.container{max-width:950px;margin:auto;padding:15px}
+.stats{
+ display:grid;grid-template-columns:repeat(2,1fr);gap:12px;
+}
+.stat{
+ background:linear-gradient(145deg,#13243b,#17152f);
+ padding:19px 12px;border-radius:13px;
+ border:1px solid #263c59;
+}
+.stat small{color:#aab5c8;font-size:12px}
+.stat h2{margin:10px 0 0;font-size:24px;color:#00e5ff}
+.stat:nth-child(2) h2{color:#4ade80}
+.stat:nth-child(3) h2{color:#c084fc}
+.stat:nth-child(4) h2{color:#fff}
+.section-title{
+ margin:25px 0 13px;font-size:19px;color:#00e5ff;
+}
+.progress-box{
+ background:#13243b;padding:15px;border-radius:12px;
+ margin-top:15px;
+}
+.progress-top{display:flex;justify-content:space-between;font-size:13px}
+.progress-bg{height:9px;background:#26364b;border-radius:10px;margin-top:12px;overflow:hidden}
+.progress-fill{height:100%;width:0;background:linear-gradient(90deg,#00e5ff,#a855f7);transition:.3s}
+.ads{
+ display:grid;grid-template-columns:repeat(2,1fr);gap:12px;
+}
+.ad{
+ background:#111f33;border:1px solid #263d5b;
+ border-radius:13px;overflow:hidden;
+}
+.preview{
+ height:120px;background:linear-gradient(135deg,#101d36,#40205f,#063e50);
+ display:flex;align-items:center;justify-content:center;
+ flex-direction:column;gap:8px;
+}
+.preview span{font-size:35px}
+.preview small{color:#b9d6e7;font-size:11px}
+.ad-info{padding:12px}
+.ad-info h3{font-size:14px;margin:0 0 8px}
+.ad-info p{font-size:12px;color:#aab5c8;margin:0 0 12px}
+button{
+ width:100%;padding:11px;border:0;border-radius:8px;
+ background:linear-gradient(90deg,#00bcd4,#7c3aed);
+ color:white;font-weight:bold;font-size:13px;cursor:pointer;
+}
+button:disabled{background:#354154;color:#aaa;cursor:not-allowed}
+.timer{color:#00e5ff;font-size:12px;text-align:center;margin-top:9px}
+footer{text-align:center;color:#7e8da3;padding:25px;font-size:12px}
+.notice{
+ background:#182b40;border-left:3px solid #00e5ff;
+ padding:12px;border-radius:7px;color:#bdc9d8;
+ font-size:12px;line-height:1.6;margin-top:15px;
+}
+@media(min-width:650px){
+ .stats{grid-template-columns:repeat(4,1fr)}
+ .ads{grid-template-columns:repeat(3,1fr)}
+}
+</style>
+</head>
+<body>
+
+<header>
+ <h1>⚡ AZDAR ADS WATCHING</h1>
+ <p>WATCH ADS • COMPLETE TASKS • TRACK PROGRESS</p>
+</header>
+
+<div class="container">
+
+ <div class="stats">
+  <div class="stat">
+   <small>💰 Total Earning</small>
+   <h2 id="total">Rs. 9,000</h2>
+  </div>
+  <div class="stat">
+   <small>📅 Today Earning</small>
+   <h2 id="today">Rs. 0</h2>
+  </div>
+  <div class="stat">
+   <small>🎯 Daily Earning</small>
+   <h2>Rs. 1,500</h2>
+  </div>
+  <div class="stat">
+   <small>▶ Ads Watched</small>
+   <h2 id="count">0/10</h2>
+  </div>
+ </div>
+
+ <div class="progress-box">
+  <div class="progress-top">
+   <strong>Daily Progress</strong>
+   <span id="percent">0%</span>
+  </div>
+  <div class="progress-bg">
+   <div class="progress-fill" id="progress"></div>
+  </div>
+ </div>
+
+ <h2 class="section-title">🎬 Available Advertisements</h2>
+ <p style="font-size:12px;color:#9eacc0">
+  Choose any 10 advertisements from the 30 available ads.
+  Each task has a 15-second timer.
+ </p>
+
+ <div class="ads" id="ads"></div>
+
+ <div class="notice">
+  <b>Daily Rules</b><br>
+  • Total advertisements: 30<br>
+  • Daily completion limit: 10<br>
+  • Time per advertisement: 15 seconds<br>
+  • Displayed earning per ad: Rs.150<br>
+  • Daily earning target: Rs.1,500<br>
+  • Progress resets after 24 hours.
+ </div>
+
+</div>
+
+<footer>
+ AZDAR WEB STUDIO<br>
+ Your Vision, Our Code.
+</footer>
+
+<script>
+const DAILY_LIMIT = 10;
+const REWARD = 150;
+const RESET_TIME = 24 * 60 * 60 * 1000;
+
+const STORAGE_KEY = "azdar_ads_v1";
+
+function freshData(){
+ return {
+  completed:[],
+  todayEarning:0,
+  totalEarning:9000,
+  cycleStarted:Date.now()
+ };
+}
+
+function loadData(){
+ try{
+  const saved=JSON.parse(localStorage.getItem(STORAGE_KEY));
+  if(!saved || !Array.isArray(saved.completed)) return freshData();
+
+  if(Date.now()-saved.cycleStarted >= RESET_TIME){
+   return freshData();
+  }
+  return saved;
+ }catch(e){
+  return freshData();
+ }
+}
+
+let data=loadData();
+let activeAd=null;
+let timerInterval=null;
+let remaining=15;
+
+function save(){
+ localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+}
+
+function updateDashboard(){
+ document.getElementById("today").textContent=
+  "Rs. "+data.todayEarning;
+
+ document.getElementById("total").textContent=
+  "Rs. "+data.totalEarning.toLocaleString("en-PK");
+
+ document.getElementById("count").textContent=
+  data.completed.length+"/10";
+
+ let percent=data.completed.length*10;
+ document.getElementById("percent").textContent=percent+"%";
+ document.getElementById("progress").style.width=percent+"%";
+}
+
+function finishAd(id){
+ if(data.completed.includes(id))return;
+
+ data.completed.push(id);
+ data.todayEarning+=REWARD;
+ data.totalEarning+=REWARD;
+
+ save();
+ updateDashboard();
+ renderAds();
+}
+
+function startAd(id){
+ if(activeAd!==null || data.completed.length>=DAILY_LIMIT)return;
+ if(data.completed.includes(id))return;
+
+ activeAd=id;
+ remaining=15;
+ renderAds();
+
+ timerInterval=setInterval(()=>{
+  remaining--;
+
+  const timer=document.getElementById("timer-"+id);
+  if(timer)timer.textContent="Time remaining: "+remaining+"s";
+
+  if(remaining<=0){
+   clearInterval(timerInterval);
+   timerInterval=null;
+   activeAd=null;
+   finishAd(id);
+  }
+ },1000);
+}
+
+function renderAds(){
+ const area=document.getElementById("ads");
+ area.innerHTML="";
+
+ for(let i=1;i<=30;i++){
+  const done=data.completed.includes(i);
+  const running=activeAd===i;
+  const locked=data.completed.length>=DAILY_LIMIT&&!done;
+
+  let status=done?"Completed":running?"Watching":locked?"Daily limit reached":"Available";
+
+  let buttonText=done?"✓ Completed":
+   running?"Watching...":
+   locked?"Unavailable":"▶ Start 15 Second Demo";
+
+  const card=document.createElement("div");
+  card.className="ad";
+
+  card.innerHTML=`
+   <div class="preview">
+    <span>▶</span>
+    <small>AZDAR ADVERTISEMENT ${i}</small>
+   </div>
+   <div class="ad-info">
+    <h3>Advertisement ${i}</h3>
+    <p>Displayed reward: Rs.150</p>
+    <button id="btn-${i}" ${done||locked||activeAd!==null?"disabled":""}>
+     ${buttonText}
+    </button>
+    <div class="timer" id="timer-${i}">
+     ${running?"Time remaining: "+remaining+"s":status}
+    </div>
+   </div>
+  `;
+
+  area.appendChild(card);
+
+  const btn=document.getElementById("btn-"+i);
+  btn.addEventListener("click",()=>startAd(i));
+ }
+}
+
+updateDashboard();
+renderAds();
+</script>
+
+</body>
+</html>
