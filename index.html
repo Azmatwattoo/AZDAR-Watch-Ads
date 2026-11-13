@@ -5,6 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AzDar Ads Watching</title>
+
 <style>
 *{box-sizing:border-box}
 body{
@@ -72,12 +73,28 @@ footer{text-align:center;color:#7e8da3;padding:25px;font-size:12px}
  padding:12px;border-radius:7px;color:#bdc9d8;
  font-size:12px;line-height:1.6;margin-top:15px;
 }
+.withdraw-box{
+ background:linear-gradient(145deg,#13243b,#17152f);
+ border:1px solid #263c59;
+ border-radius:13px;padding:18px;margin-top:15px;
+}
+.account-detail{
+ background:#0b192b;padding:14px;border-radius:9px;
+ margin:12px 0;line-height:2;font-size:13px;color:#c5d2e2;
+}
+.account-detail strong{color:#00e5ff}
+.withdraw-status{
+ margin-top:15px;padding:12px;background:#0b192b;
+ border-radius:8px;text-align:center;color:#00e5ff;
+ font-size:13px;line-height:1.7;
+}
 @media(min-width:650px){
  .stats{grid-template-columns:repeat(4,1fr)}
  .ads{grid-template-columns:repeat(3,1fr)}
 }
 </style>
 </head>
+
 <body>
 
 <header>
@@ -88,22 +105,27 @@ footer{text-align:center;color:#7e8da3;padding:25px;font-size:12px}
 <div class="container">
 
  <div class="stats">
+
   <div class="stat">
    <small>💰 Total Earning</small>
    <h2 id="total">Rs. 9,000</h2>
   </div>
+
   <div class="stat">
    <small>📅 Today Earning</small>
    <h2 id="today">Rs. 0</h2>
   </div>
+
   <div class="stat">
    <small>🎯 Daily Earning</small>
    <h2>Rs. 1,500</h2>
   </div>
+
   <div class="stat">
    <small>▶ Ads Watched</small>
    <h2 id="count">0/10</h2>
   </div>
+
  </div>
 
  <div class="progress-box">
@@ -117,12 +139,47 @@ footer{text-align:center;color:#7e8da3;padding:25px;font-size:12px}
  </div>
 
  <h2 class="section-title">🎬 Available Advertisements</h2>
+
  <p style="font-size:12px;color:#9eacc0">
   Choose any 10 advertisements from the 30 available ads.
   Each task has a 15-second timer.
  </p>
 
  <div class="ads" id="ads"></div>
+
+ <!-- WITHDRAWAL SECTION -->
+
+ <h2 class="section-title">💳 Withdrawal Center</h2>
+
+ <div class="withdraw-box">
+
+  <small style="color:#aab5c8">Available Balance</small>
+
+  <h2 id="balance" style="color:#4ade80;margin-top:8px">
+   Rs. 9,000
+  </h2>
+
+  <div class="account-detail">
+   <strong>Payment Method:</strong> JazzCash<br>
+   <strong>Account Title:</strong> Azmat Ali<br>
+   <strong>Account Number:</strong> 03002867506<br>
+   <strong>Withdrawal Amount:</strong> Rs. 10,000
+  </div>
+
+  <button id="withdrawBtn" onclick="requestWithdrawal()">
+   💸 Withdraw Rs. 10,000
+  </button>
+
+  <div class="withdraw-status" id="withdrawStatus">
+   No withdrawal request
+  </div>
+
+  <p style="font-size:11px;color:#8c9db2;line-height:1.6">
+   Demo only: This interface does not transfer money to JazzCash.
+   Completion status is not proof of payment.
+  </p>
+
+ </div>
 
  <div class="notice">
   <b>Daily Rules</b><br>
@@ -142,17 +199,22 @@ footer{text-align:center;color:#7e8da3;padding:25px;font-size:12px}
 </footer>
 
 <script>
+
 const DAILY_LIMIT = 10;
 const REWARD = 150;
 const RESET_TIME = 24 * 60 * 60 * 1000;
+const WITHDRAW_AMOUNT = 10000;
+const PROCESS_TIME = 5 * 60 * 1000;
 
-const STORAGE_KEY = "azdar_ads_v1";
+const STORAGE_KEY = "azdar_ads_v2";
 
 function freshData(){
  return {
   completed:[],
   todayEarning:0,
   totalEarning:9000,
+  balance:9000,
+  withdrawal:null,
   cycleStarted:Date.now()
  };
 }
@@ -160,12 +222,30 @@ function freshData(){
 function loadData(){
  try{
   const saved=JSON.parse(localStorage.getItem(STORAGE_KEY));
-  if(!saved || !Array.isArray(saved.completed)) return freshData();
 
-  if(Date.now()-saved.cycleStarted >= RESET_TIME){
+  if(!saved || !Array.isArray(saved.completed)){
    return freshData();
   }
+
+  if(Date.now()-saved.cycleStarted >= RESET_TIME){
+   return {
+    ...saved,
+    completed:[],
+    todayEarning:0,
+    cycleStarted:Date.now()
+   };
+  }
+
+  if(typeof saved.balance!=="number"){
+   saved.balance=saved.totalEarning;
+  }
+
+  if(!("withdrawal" in saved)){
+   saved.withdrawal=null;
+  }
+
   return saved;
+
  }catch(e){
   return freshData();
  }
@@ -181,6 +261,7 @@ function save(){
 }
 
 function updateDashboard(){
+
  document.getElementById("today").textContent=
   "Rs. "+data.todayEarning;
 
@@ -191,55 +272,72 @@ function updateDashboard(){
   data.completed.length+"/10";
 
  let percent=data.completed.length*10;
+
  document.getElementById("percent").textContent=percent+"%";
  document.getElementById("progress").style.width=percent+"%";
 }
 
 function finishAd(id){
+
  if(data.completed.includes(id))return;
 
  data.completed.push(id);
  data.todayEarning+=REWARD;
  data.totalEarning+=REWARD;
+ data.balance+=REWARD;
 
  save();
  updateDashboard();
+ updateWithdrawal();
  renderAds();
 }
 
 function startAd(id){
+
  if(activeAd!==null || data.completed.length>=DAILY_LIMIT)return;
  if(data.completed.includes(id))return;
 
  activeAd=id;
  remaining=15;
+
  renderAds();
 
  timerInterval=setInterval(()=>{
+
   remaining--;
 
   const timer=document.getElementById("timer-"+id);
-  if(timer)timer.textContent="Time remaining: "+remaining+"s";
+
+  if(timer){
+   timer.textContent="Time remaining: "+remaining+"s";
+  }
 
   if(remaining<=0){
+
    clearInterval(timerInterval);
    timerInterval=null;
    activeAd=null;
+
    finishAd(id);
   }
+
  },1000);
 }
 
 function renderAds(){
+
  const area=document.getElementById("ads");
  area.innerHTML="";
 
  for(let i=1;i<=30;i++){
+
   const done=data.completed.includes(i);
   const running=activeAd===i;
   const locked=data.completed.length>=DAILY_LIMIT&&!done;
 
-  let status=done?"Completed":running?"Watching":locked?"Daily limit reached":"Available";
+  let status=done?"Completed":
+   running?"Watching":
+   locked?"Daily limit reached":"Available";
 
   let buttonText=done?"✓ Completed":
    running?"Watching...":
@@ -272,8 +370,104 @@ function renderAds(){
  }
 }
 
+// WITHDRAWAL SYSTEM
+
+function updateWithdrawal(){
+
+ const balance=document.getElementById("balance");
+ const status=document.getElementById("withdrawStatus");
+ const btn=document.getElementById("withdrawBtn");
+
+ balance.textContent=
+  "Rs. "+data.balance.toLocaleString("en-PK");
+
+ if(data.withdrawal){
+
+  const elapsed=Date.now()-data.withdrawal.time;
+
+  if(elapsed>=PROCESS_TIME &&
+     data.withdrawal.status==="Processing"){
+
+   data.withdrawal.status="Completed (Demo)";
+   save();
+  }
+
+  if(data.withdrawal.status==="Processing"){
+
+   const left=Math.max(0,Math.ceil(
+    (PROCESS_TIME-elapsed)/1000
+   ));
+
+   status.textContent=
+    "⏳ Withdrawal Processing... "+left+" seconds remaining";
+
+   btn.disabled=true;
+   btn.textContent="Withdrawal Processing...";
+
+  }else{
+
+   status.textContent=
+    "✓ Completed (Demo)\nRs. 10,000 request processed locally. No payment sent.";
+
+   btn.disabled=true;
+   btn.textContent="Withdrawal Completed (Demo)";
+  }
+
+ }else{
+
+  status.textContent="No withdrawal request";
+
+  btn.disabled=data.balance<WITHDRAW_AMOUNT;
+
+  btn.textContent="💸 Withdraw Rs. 10,000";
+ }
+}
+
+function requestWithdrawal(){
+
+ if(data.withdrawal){
+  alert("A withdrawal request already exists.");
+  return;
+ }
+
+ if(data.balance<WITHDRAW_AMOUNT){
+  alert("Insufficient balance! Rs. 10,000 required.");
+  return;
+ }
+
+ const confirmRequest=confirm(
+  "Do you want to request Rs. 10,000 withdrawal?"
+ );
+
+ if(!confirmRequest)return;
+
+ data.balance-=WITHDRAW_AMOUNT;
+
+ data.withdrawal={
+  amount:WITHDRAW_AMOUNT,
+  method:"JazzCash",
+  account:"03002867506",
+  title:"Azmat Ali",
+  time:Date.now(),
+  status:"Processing"
+ };
+
+ save();
+
+ updateWithdrawal();
+ updateDashboard();
+
+ alert("Demo withdrawal request started.");
+}
+
+// INITIALIZE
+
 updateDashboard();
 renderAds();
+updateWithdrawal();
+
+setInterval(updateWithdrawal,1000);
+
 </script>
 
 </body>
